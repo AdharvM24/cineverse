@@ -9,14 +9,16 @@
     "userInterfaceStyle": "dark",
     "backgroundColor": "#09090B",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.cineverse.app"
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#09090B",
         "foregroundImage": "./assets/android-icon-foreground.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.cineverse.app"
     },
     "web": {
       "favicon": "./assets/favicon.png",
