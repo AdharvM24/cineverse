@@ -1,5 +1,6 @@
 -- ==========================================================
 -- TMDB CineVerse Supabase Database Schema & RLS Policies
+-- Fully Idempotent (Safe to run multiple times)
 -- ==========================================================
 
 -- 1. Profiles Table
@@ -16,14 +17,17 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view their own profile" ON public.profiles;
 CREATE POLICY "Users can view their own profile"
   ON public.profiles FOR SELECT
   USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
 CREATE POLICY "Users can update their own profile"
   ON public.profiles FOR UPDATE
   USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Users can insert their own profile" ON public.profiles;
 CREATE POLICY "Users can insert their own profile"
   ON public.profiles FOR INSERT
   WITH CHECK (auth.uid() = id);
@@ -38,7 +42,8 @@ BEGIN
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)),
     COALESCE(NEW.raw_user_meta_data->>'avatar_url', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200')
-  );
+  )
+  ON CONFLICT (id) DO NOTHING;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -67,6 +72,7 @@ CREATE INDEX IF NOT EXISTS idx_watchlists_tmdb ON public.watchlists(tmdb_id, med
 
 ALTER TABLE public.watchlists ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can manage their own watchlist" ON public.watchlists;
 CREATE POLICY "Users can manage their own watchlist"
   ON public.watchlists FOR ALL
   USING (auth.uid() = user_id)
@@ -90,6 +96,7 @@ CREATE INDEX IF NOT EXISTS idx_favorites_user_id ON public.favorites(user_id);
 
 ALTER TABLE public.favorites ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can manage their own favorites" ON public.favorites;
 CREATE POLICY "Users can manage their own favorites"
   ON public.favorites FOR ALL
   USING (auth.uid() = user_id)
@@ -111,6 +118,7 @@ CREATE INDEX IF NOT EXISTS idx_history_user_id ON public.watch_history(user_id);
 
 ALTER TABLE public.watch_history ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can manage their watch history" ON public.watch_history;
 CREATE POLICY "Users can manage their watch history"
   ON public.watch_history FOR ALL
   USING (auth.uid() = user_id)
@@ -129,10 +137,12 @@ CREATE TABLE IF NOT EXISTS public.reviews (
 
 ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Anyone can view reviews" ON public.reviews;
 CREATE POLICY "Anyone can view reviews"
   ON public.reviews FOR SELECT
   USING (true);
 
+DROP POLICY IF EXISTS "Users can manage their own reviews" ON public.reviews;
 CREATE POLICY "Users can manage their own reviews"
   ON public.reviews FOR ALL
   USING (auth.uid() = user_id)
@@ -150,12 +160,11 @@ CREATE TABLE IF NOT EXISTS public.user_preferences (
 
 ALTER TABLE public.user_preferences ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can manage their preferences" ON public.user_preferences;
 CREATE POLICY "Users can manage their preferences"
   ON public.user_preferences FOR ALL
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
--- 7. Reload PostgREST Schema Cache
+-- 7. Reload PostgREST API Schema Cache
 NOTIFY pgrst, 'reload schema';
-
-
