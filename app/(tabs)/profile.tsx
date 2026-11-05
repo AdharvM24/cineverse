@@ -23,8 +23,10 @@ import {
   Database,
   CheckCircle,
   Sparkles,
+  Camera,
 } from 'lucide-react-native';
 import { router } from 'expo-router';
+import AvatarPickerModal from '../../src/components/AvatarPickerModal';
 import { colors } from '../../src/theme/colors';
 import { typography } from '../../src/theme/typography';
 import { useAuthStore } from '../../src/store/authStore';
@@ -52,6 +54,7 @@ export default function ProfileScreen() {
 
   const [editingName, setEditingName] = useState(false);
   const [tempName, setTempName] = useState(user?.full_name || '');
+  const [avatarModalVisible, setAvatarModalVisible] = useState(false);
 
   const isGuest = !isAuthenticated || !user || user.id === 'guest_user_demo_netflix';
 
@@ -104,15 +107,24 @@ export default function ProfileScreen() {
         {/* User Card */}
         <View style={styles.profileCard}>
           <View style={styles.avatarRow}>
-            <Image
-              source={{
-                uri:
-                  user?.avatar_url ||
-                  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
-              }}
-              style={styles.avatar}
-              contentFit="cover"
-            />
+            <Pressable
+              style={({ pressed }) => [styles.avatarPressable, pressed && styles.btnPressed]}
+              onPress={() => setAvatarModalVisible(true)}
+            >
+              <Image
+                source={{
+                  uri:
+                    user?.avatar_url ||
+                    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
+                }}
+                style={styles.avatar}
+                contentFit="cover"
+              />
+              <View style={styles.cameraIconBadge}>
+                <Camera size={13} color="#FFF" />
+              </View>
+            </Pressable>
+
             <View style={styles.userInfo}>
               {editingName ? (
                 <View style={styles.editRow}>
@@ -134,6 +146,14 @@ export default function ProfileScreen() {
                 </Pressable>
               )}
               <Text style={styles.userEmail}>{user?.email || 'guest@cineverse.app'}</Text>
+              <Pressable
+                onPress={() => setAvatarModalVisible(true)}
+                style={styles.changePhotoBtn}
+                hitSlop={6}
+              >
+                <Camera size={12} color={colors.primary} />
+                <Text style={styles.changePhotoText}>Change Photo</Text>
+              </Pressable>
             </View>
           </View>
 
@@ -383,6 +403,16 @@ export default function ProfileScreen() {
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
+
+      {/* Avatar Picker Modal */}
+      <AvatarPickerModal
+        visible={avatarModalVisible}
+        onClose={() => setAvatarModalVisible(false)}
+        currentAvatarUrl={user?.avatar_url}
+        onSelectAvatar={async (url) => {
+          await updateProfile({ avatar_url: url });
+        }}
+      />
     </View>
   );
 }
@@ -413,6 +443,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
+  },
+  avatarPressable: {
+    position: 'relative',
+  },
+  cameraIconBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: colors.primary,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: colors.card,
+  },
+  changePhotoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 5,
+  },
+  changePhotoText: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: '700',
   },
   avatar: {
     width: 64,
