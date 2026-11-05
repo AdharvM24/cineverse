@@ -166,3 +166,4 @@ npx expo-doctor      # Verify Expo SDK compatibility (20/20 checks passed)
 ## 📜 Legal & Attribution
 This product uses the **TMDB API** but is not endorsed or certified by TMDB.
 Movie streaming availability data is provided by **JustWatch** via the TMDB Watch Providers service. CineVerse directs users exclusively to legal, authorized streaming providers.
+
