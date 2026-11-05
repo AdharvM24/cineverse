@@ -53,6 +53,8 @@ export default function ProfileScreen() {
   const [editingName, setEditingName] = useState(false);
   const [tempName, setTempName] = useState(user?.full_name || '');
 
+  const isGuest = !isAuthenticated || !user || user.id === 'guest_user_demo_netflix';
+
   const handleAuthSubmit = async () => {
     if (!email.trim() || !password.trim()) {
       Alert.alert('Required Fields', 'Please enter your email and password.');
@@ -169,102 +171,151 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Supabase Email Authentication Form */}
-        <View style={styles.authSection}>
-          <View style={styles.authTabs}>
-            <Pressable
-              style={[
-                styles.authTabBtn,
-                authMode === 'signin' && styles.authTabBtnActive,
-              ]}
-              onPress={() => setAuthMode('signin')}
-            >
-              <Text
-                style={[
-                  styles.authTabText,
-                  authMode === 'signin' && styles.authTabTextActive,
-                ]}
-              >
-                Sign In
-              </Text>
-            </Pressable>
+        {/* If Signed In: Show Verified Account Card. If Guest: Show Sign In / Register Form */}
+        {!isGuest ? (
+          <View style={styles.signedInCard}>
+            <View style={styles.signedInHeader}>
+              <View style={styles.verifiedBadge}>
+                <CheckCircle size={14} color="#22C55E" />
+                <Text style={styles.verifiedText}>Active Account</Text>
+              </View>
+              <Text style={styles.signedInId}>ID: {user?.id.substring(0, 8)}...</Text>
+            </View>
+
+            <View style={styles.accountDetailRow}>
+              <Mail size={16} color={colors.textSecondary} />
+              <Text style={styles.accountDetailText}>{user?.email}</Text>
+            </View>
+
+            <View style={styles.accountDetailRow}>
+              <User size={16} color={colors.textSecondary} />
+              <Text style={styles.accountDetailText}>{user?.full_name}</Text>
+            </View>
 
             <Pressable
-              style={[
-                styles.authTabBtn,
-                authMode === 'signup' && styles.authTabBtnActive,
-              ]}
-              onPress={() => setAuthMode('signup')}
+              style={({ pressed }) => [styles.signOutBtn, pressed && styles.btnPressed]}
+              onPress={() => {
+                Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Sign Out',
+                    style: 'destructive',
+                    onPress: () => {
+                      signOut();
+                      Alert.alert('Signed Out', 'You have been logged out.');
+                    },
+                  },
+                ]);
+              }}
             >
-              <Text
-                style={[
-                  styles.authTabText,
-                  authMode === 'signup' && styles.authTabTextActive,
-                ]}
-              >
-                Create Account
-              </Text>
+              <LogOut size={16} color="#EF4444" />
+              <Text style={styles.signOutBtnText}>Sign Out</Text>
             </Pressable>
           </View>
+        ) : (
+          <View style={styles.authSection}>
+            <View style={styles.guestNotice}>
+              <User size={16} color={colors.primary} />
+              <Text style={styles.guestNoticeText}>
+                Currently browsing as Guest. Sign in or register to sync your Watchlist & Favorites.
+              </Text>
+            </View>
 
-          <View style={styles.formContainer}>
-            {authMode === 'signup' && (
+            <View style={styles.authTabs}>
+              <Pressable
+                style={[
+                  styles.authTabBtn,
+                  authMode === 'signin' && styles.authTabBtnActive,
+                ]}
+                onPress={() => setAuthMode('signin')}
+              >
+                <Text
+                  style={[
+                    styles.authTabText,
+                    authMode === 'signin' && styles.authTabTextActive,
+                  ]}
+                >
+                  Sign In
+                </Text>
+              </Pressable>
+
+              <Pressable
+                style={[
+                  styles.authTabBtn,
+                  authMode === 'signup' && styles.authTabBtnActive,
+                ]}
+                onPress={() => setAuthMode('signup')}
+              >
+                <Text
+                  style={[
+                    styles.authTabText,
+                    authMode === 'signup' && styles.authTabTextActive,
+                  ]}
+                >
+                  Create Account
+                </Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.formContainer}>
+              {authMode === 'signup' && (
+                <View style={styles.inputField}>
+                  <User size={16} color={colors.textSecondary} />
+                  <TextInput
+                    style={styles.formInput}
+                    placeholder="Full Name"
+                    placeholderTextColor={colors.textMuted}
+                    value={fullName}
+                    onChangeText={setFullName}
+                    autoCapitalize="words"
+                  />
+                </View>
+              )}
+
               <View style={styles.inputField}>
-                <User size={16} color={colors.textSecondary} />
+                <Mail size={16} color={colors.textSecondary} />
                 <TextInput
                   style={styles.formInput}
-                  placeholder="Full Name"
+                  placeholder="Email address"
                   placeholderTextColor={colors.textMuted}
-                  value={fullName}
-                  onChangeText={setFullName}
-                  autoCapitalize="words"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
                 />
               </View>
-            )}
 
-            <View style={styles.inputField}>
-              <Mail size={16} color={colors.textSecondary} />
-              <TextInput
-                style={styles.formInput}
-                placeholder="Email address"
-                placeholderTextColor={colors.textMuted}
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
+              <View style={styles.inputField}>
+                <Lock size={16} color={colors.textSecondary} />
+                <TextInput
+                  style={styles.formInput}
+                  placeholder="Password"
+                  placeholderTextColor={colors.textMuted}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                />
+              </View>
+
+              <Pressable
+                style={({ pressed }) => [
+                  styles.authSubmitBtn,
+                  pressed && styles.btnPressed,
+                ]}
+                onPress={handleAuthSubmit}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <Text style={styles.authSubmitBtnText}>
+                    {authMode === 'signin' ? 'Sign In to Supabase' : 'Create Account'}
+                  </Text>
+                )}
+              </Pressable>
             </View>
-
-            <View style={styles.inputField}>
-              <Lock size={16} color={colors.textSecondary} />
-              <TextInput
-                style={styles.formInput}
-                placeholder="Password"
-                placeholderTextColor={colors.textMuted}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-              />
-            </View>
-
-            <Pressable
-              style={({ pressed }) => [
-                styles.authSubmitBtn,
-                pressed && styles.btnPressed,
-              ]}
-              onPress={handleAuthSubmit}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? (
-                <ActivityIndicator size="small" color="#FFF" />
-              ) : (
-                <Text style={styles.authSubmitBtnText}>
-                  {authMode === 'signin' ? 'Sign In to Supabase' : 'Create Account'}
-                </Text>
-              )}
-            </Pressable>
           </View>
-        </View>
+        )}
 
         {/* Preferences Section */}
         <View style={styles.settingsSection}>
@@ -316,17 +367,19 @@ export default function ProfileScreen() {
           </Pressable>
         </View>
 
-        {/* Logout Button */}
-        <Pressable
-          style={({ pressed }) => [styles.logoutBtn, pressed && styles.btnPressed]}
-          onPress={() => {
-            signOut();
-            Alert.alert('Signed Out', 'You have been logged out.');
-          }}
-        >
-          <LogOut size={16} color="#EF4444" />
-          <Text style={styles.logoutBtnText}>Sign Out / Reset Session</Text>
-        </Pressable>
+        {/* Guest reset button if in guest mode */}
+        {isGuest && (
+          <Pressable
+            style={({ pressed }) => [styles.logoutBtn, pressed && styles.btnPressed]}
+            onPress={() => {
+              signOut();
+              Alert.alert('Guest Session Reset', 'Guest cache cleared.');
+            }}
+          >
+            <LogOut size={16} color={colors.textMuted} />
+            <Text style={[styles.logoutBtnText, { color: colors.textSecondary }]}>Reset Guest Session</Text>
+          </Pressable>
+        )}
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
@@ -463,6 +516,92 @@ const styles = StyleSheet.create({
   statusBannerDesc: {
     color: colors.textMuted,
     fontSize: 11,
+    lineHeight: 15,
+  },
+  signedInCard: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    marginBottom: 20,
+    gap: 12,
+  },
+  signedInHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  verifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(34, 197, 94, 0.3)',
+  },
+  verifiedText: {
+    color: '#22C55E',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  signedInId: {
+    color: colors.textMuted,
+    fontSize: 11,
+  },
+  accountDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: colors.surface,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  accountDetailText: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  signOutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+    paddingVertical: 12,
+    borderRadius: 8,
+    gap: 8,
+    marginTop: 4,
+  },
+  signOutBtnText: {
+    color: '#EF4444',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  guestNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(229, 9, 20, 0.08)',
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(229, 9, 20, 0.2)',
+    marginBottom: 14,
+  },
+  guestNoticeText: {
+    color: colors.textSecondary,
+    fontSize: 11,
+    flex: 1,
     lineHeight: 15,
   },
   authSection: {

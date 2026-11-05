@@ -6,7 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 interface AuthState {
   user: UserProfile | null;
   isLoading: boolean;
-  isAuthenticated: boolean;
+  isAuthenticated: boolean; // True when signed in with an active account
   isConfigured: boolean;
   initialize: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
@@ -15,7 +15,7 @@ interface AuthState {
   updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
 }
 
-const DEMO_USER: UserProfile = {
+const GUEST_USER: UserProfile = {
   id: 'guest_user_demo_netflix',
   email: 'guest@cineverse.app',
   full_name: 'Cinephile Guest',
@@ -27,9 +27,9 @@ const DEMO_USER: UserProfile = {
 };
 
 export const useAuthStore = create<AuthState>((set, get) => ({
-  user: DEMO_USER,
+  user: GUEST_USER,
   isLoading: true,
-  isAuthenticated: true,
+  isAuthenticated: false,
   isConfigured: isSupabaseConfigured(),
 
   initialize: async () => {
@@ -38,13 +38,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ isConfigured: configured });
 
       if (!configured) {
-        // Load offline demo profile
+        // Load stored local user if previously signed in locally
         const stored = await AsyncStorage.getItem('@cineverse_demo_user');
         if (stored) {
-          set({ user: JSON.parse(stored), isAuthenticated: true, isLoading: false });
+          const parsed = JSON.parse(stored);
+          const isRealUser = parsed.id !== 'guest_user_demo_netflix';
+          set({ user: parsed, isAuthenticated: isRealUser, isLoading: false });
         } else {
-          await AsyncStorage.setItem('@cineverse_demo_user', JSON.stringify(DEMO_USER));
-          set({ user: DEMO_USER, isAuthenticated: true, isLoading: false });
+          set({ user: GUEST_USER, isAuthenticated: false, isLoading: false });
         }
         return;
       }
@@ -56,8 +57,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         const userObj: UserProfile = {
           id: data.session.user.id,
           email: data.session.user.email || '',
-          full_name: profile?.full_name || data.session.user.user_metadata?.full_name || 'Movie Lover',
-          avatar_url: profile?.avatar_url || data.session.user.user_metadata?.avatar_url || DEMO_USER.avatar_url,
+          full_name: profile?.full_name || data.session.user.user_metadata?.full_name || data.session.user.email?.split('@')[0] || 'Movie Lover',
+          avatar_url: profile?.avatar_url || data.session.user.user_metadata?.avatar_url || GUEST_USER.avatar_url,
           favorite_genre: profile?.favorite_genre || 'Action',
           preferred_language: profile?.preferred_language || 'ml',
           created_at: profile?.created_at || new Date().toISOString(),
@@ -65,7 +66,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         };
         set({ user: userObj, isAuthenticated: true, isLoading: false });
       } else {
-        set({ user: DEMO_USER, isAuthenticated: true, isLoading: false });
+        set({ user: GUEST_USER, isAuthenticated: false, isLoading: false });
       }
 
       // Listen for auth changes
@@ -76,8 +77,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             user: {
               id: session.user.id,
               email: session.user.email || '',
-              full_name: profile?.full_name || session.user.user_metadata?.full_name || 'Movie Lover',
-              avatar_url: profile?.avatar_url || session.user.user_metadata?.avatar_url || DEMO_USER.avatar_url,
+              full_name: profile?.full_name || session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Movie Lover',
+              avatar_url: profile?.avatar_url || session.user.user_metadata?.avatar_url || GUEST_USER.avatar_url,
               favorite_genre: profile?.favorite_genre || 'Action',
               preferred_language: profile?.preferred_language || 'ml',
               created_at: profile?.created_at || new Date().toISOString(),
@@ -85,23 +86,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             },
             isAuthenticated: true,
           });
+        } else {
+          set({ user: GUEST_USER, isAuthenticated: false });
         }
       });
     } catch {
-      set({ user: DEMO_USER, isAuthenticated: true, isLoading: false });
+      set({ user: GUEST_USER, isAuthenticated: false, isLoading: false });
     }
   },
 
   signInWithEmail: async (email, password) => {
     try {
       if (!get().isConfigured) {
-        const demoUser: UserProfile = {
-          ...DEMO_USER,
+        const localUser: UserProfile = {
+          ...GUEST_USER,
+          id: `local_user_${Date.now()}`,
           email,
           full_name: email.split('@')[0],
         };
-        await AsyncStorage.setItem('@cineverse_demo_user', JSON.stringify(demoUser));
-        set({ user: demoUser, isAuthenticated: true });
+        await AsyncStorage.setItem('@cineverse_demo_user', JSON.stringify(localUser));
+        set({ user: localUser, isAuthenticated: true });
         return { success: true };
       }
 
@@ -109,19 +113,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (error) return { success: false, error: error.message };
       if (data.user) {
         const profile = await supabaseService.getProfile(data.user.id);
-        set({
-          user: {
-            id: data.user.id,
-            email: data.user.email || '',
-            full_name: profile?.full_name || data.user.user_metadata?.full_name || email.split('@')[0],
-            avatar_url: profile?.avatar_url || DEMO_USER.avatar_url,
-            favorite_genre: profile?.favorite_genre || 'Action',
-            preferred_language: profile?.preferred_language || 'ml',
-            created_at: profile?.created_at || new Date().toISOString(),
-            updated_at: profile?.updated_at || new Date().toISOString(),
-          },
-          isAuthenticated: true,
-        });
+        const userObj: UserProfile = {
+          id: data.user.id,
+          email: data.user.email || '',
+          full_name: profile?.full_name || data.user.user_metadata?.full_name || email.split('@')[0],
+          avatar_url: profile?.avatar_url || GUEST_USER.avatar_url,
+          favorite_genre: profile?.favorite_genre || 'Action',
+          preferred_language: profile?.preferred_language || 'ml',
+          created_at: profile?.created_at || new Date().toISOString(),
+          updated_at: profile?.updated_at || new Date().toISOString(),
+        };
+        set({ user: userObj, isAuthenticated: true });
       }
       return { success: true };
     } catch (err: any) {
@@ -132,13 +134,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signUpWithEmail: async (email, password, fullName) => {
     try {
       if (!get().isConfigured) {
-        const demoUser: UserProfile = {
-          ...DEMO_USER,
+        const localUser: UserProfile = {
+          ...GUEST_USER,
+          id: `local_user_${Date.now()}`,
           email,
           full_name: fullName,
         };
-        await AsyncStorage.setItem('@cineverse_demo_user', JSON.stringify(demoUser));
-        set({ user: demoUser, isAuthenticated: true });
+        await AsyncStorage.setItem('@cineverse_demo_user', JSON.stringify(localUser));
+        set({ user: localUser, isAuthenticated: true });
         return { success: true };
       }
 
@@ -152,7 +155,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         await supabaseService.updateProfile(data.user.id, {
           email,
           full_name: fullName,
-          avatar_url: DEMO_USER.avatar_url,
+          avatar_url: GUEST_USER.avatar_url,
+        });
+        set({
+          user: {
+            id: data.user.id,
+            email,
+            full_name: fullName,
+            avatar_url: GUEST_USER.avatar_url,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+          isAuthenticated: true,
         });
       }
       return { success: true };
@@ -162,11 +176,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   signOut: async () => {
-    if (get().isConfigured) {
-      await supabase.auth.signOut();
-    }
+    try {
+      if (get().isConfigured) {
+        await supabase.auth.signOut();
+      }
+    } catch {}
     await AsyncStorage.removeItem('@cineverse_demo_user');
-    set({ user: DEMO_USER, isAuthenticated: true });
+    set({ user: GUEST_USER, isAuthenticated: false });
   },
 
   updateProfile: async (updates) => {
@@ -177,4 +193,3 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await supabaseService.updateProfile(current.id, updates);
   },
 }));
-
