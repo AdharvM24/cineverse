@@ -155,3 +155,7 @@ CREATE POLICY "Users can manage their preferences"
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
+-- 7. Reload PostgREST Schema Cache
+NOTIFY pgrst, 'reload schema';
+
+
