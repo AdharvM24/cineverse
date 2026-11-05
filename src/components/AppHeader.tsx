@@ -53,6 +53,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ showGreeting = true }) => 
 
           <Pressable
             style={({ pressed }) => [styles.iconBtn, pressed && styles.btnPressed]}
+            onPress={() => router.push('/notifications' as any)}
             hitSlop={8}
           >
             <Bell size={22} color={colors.text} />
