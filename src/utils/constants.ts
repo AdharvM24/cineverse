@@ -2,19 +2,16 @@ export const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 
 // Default TMDB API Key (Can be overridden via EXPO_PUBLIC_TMDB_API_KEY environment variable)
 export const TMDB_API_KEY =
-  process.env.EXPO_PUBLIC_TMDB_API_KEY || '2dca580c2a14b55200e784d157207b4d';
+  process.env.EXPO_PUBLIC_TMDB_API_KEY || '4f5308f8580aeaff9ae77af41b806d68';
 
 export const SUPABASE_URL =
   process.env.EXPO_PUBLIC_SUPABASE_URL ||
-  process.env.SUPABASE_URL ||
-  'https://placeholder-tmdb-project.supabase.co';
+  'https://ybzjiyduznqdjggzqzbe.supabase.co';
 
 export const SUPABASE_ANON_KEY =
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
   process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-  process.env.SUPABASE_ANON_KEY ||
-  process.env.SUPABASE_PUBLISHABLE_KEY ||
-  'placeholder-anon-key-tmdb-discovery';
+  'sb_publishable_RdSaCcs-FgeGLVGcJR74zg_-7bnRWeQ';
 
 export const GENRE_MAP: Record<number, string> = {
   28: 'Action',
@@ -72,4 +69,3 @@ export const POPULAR_SEARCH_TERMS = [
   'Breaking Bad',
   'Dark',
 ];
-
