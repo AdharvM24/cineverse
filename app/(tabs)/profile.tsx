@@ -6,7 +6,6 @@ import {
   ScrollView,
   Pressable,
   TextInput,
-  Alert,
   ActivityIndicator,
   Switch,
   Modal,
@@ -38,6 +37,7 @@ import {
 } from 'lucide-react-native';
 import { router } from 'expo-router';
 import AvatarPickerModal from '../../src/components/AvatarPickerModal';
+import CinematicModal, { ModalType } from '../../src/components/CinematicModal';
 import { colors } from '../../src/theme/colors';
 import { typography } from '../../src/theme/typography';
 import { useAuthStore } from '../../src/store/authStore';
@@ -72,11 +72,58 @@ export default function ProfileScreen() {
   const [regionModalVisible, setRegionModalVisible] = useState(false);
   const [autoplayTrailers, setAutoplayTrailers] = useState(true);
 
+  // Cinematic Modal State
+  const [modalConfig, setModalConfig] = useState<{
+    visible: boolean;
+    type: ModalType;
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    onConfirm?: () => void;
+    isDestructive?: boolean;
+  }>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+  });
+
+  const showModal = (config: {
+    type?: ModalType;
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    onConfirm?: () => void;
+    isDestructive?: boolean;
+  }) => {
+    setModalConfig({
+      type: config.type || 'info',
+      title: config.title,
+      message: config.message,
+      confirmText: config.confirmText,
+      cancelText: config.cancelText,
+      onConfirm: config.onConfirm,
+      isDestructive: config.isDestructive,
+      visible: true,
+    });
+  };
+
+  const closeModal = () => {
+    setModalConfig((prev) => ({ ...prev, visible: false }));
+  };
+
   const isGuest = !isAuthenticated || !user || user.id === 'guest_user_demo_netflix';
 
   const handleAuthSubmit = async () => {
     if (!email.trim() || !password.trim()) {
-      Alert.alert('Required Fields', 'Please enter your email and password.');
+      showModal({
+        type: 'error',
+        title: 'Required Fields',
+        message: 'Please enter your email and password to continue.',
+        confirmText: 'Understood',
+      });
       return;
     }
 
@@ -85,22 +132,47 @@ export default function ProfileScreen() {
       const result = await signInWithEmail(email, password);
       setIsSubmitting(false);
       if (!result.success) {
-        Alert.alert('Sign In Failed', result.error || 'Please check your credentials.');
+        showModal({
+          type: 'error',
+          title: 'Sign In Failed',
+          message: result.error || 'Please check your credentials and try again.',
+          confirmText: 'Retry',
+        });
       } else {
-        Alert.alert('Welcome Back!', 'Signed in successfully.');
+        showModal({
+          type: 'success',
+          title: 'Welcome Back!',
+          message: 'Signed in successfully. Your watchlist, favorites, and profile are now synced.',
+          confirmText: 'Continue',
+        });
       }
     } else {
       if (!fullName.trim()) {
-        Alert.alert('Full Name Required', 'Please enter your full name.');
+        showModal({
+          type: 'error',
+          title: 'Full Name Required',
+          message: 'Please enter your full name to create your account.',
+          confirmText: 'Understood',
+        });
         setIsSubmitting(false);
         return;
       }
       const result = await signUpWithEmail(email, password, fullName);
       setIsSubmitting(false);
       if (!result.success) {
-        Alert.alert('Sign Up Failed', result.error || 'Could not complete registration.');
+        showModal({
+          type: 'error',
+          title: 'Registration Error',
+          message: result.error || 'Could not complete registration. Please try again.',
+          confirmText: 'Retry',
+        });
       } else {
-        Alert.alert('Account Created', 'Your account is ready!');
+        showModal({
+          type: 'success',
+          title: 'Account Created',
+          message: 'Your CineVerse account is ready! Enjoy syncing movies and series across devices.',
+          confirmText: 'Explore',
+        });
       }
     }
   };
@@ -263,17 +335,23 @@ export default function ProfileScreen() {
             <Pressable
               style={({ pressed }) => [styles.signOutBtn, pressed && styles.btnPressed]}
               onPress={() => {
-                Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-                  { text: 'Cancel', style: 'cancel' },
-                  {
-                    text: 'Sign Out',
-                    style: 'destructive',
-                    onPress: () => {
-                      signOut();
-                      Alert.alert('Signed Out', 'You have been logged out.');
-                    },
+                showModal({
+                  type: 'confirm',
+                  title: 'Sign Out',
+                  message: 'Are you sure you want to sign out of your CineVerse account on this device?',
+                  confirmText: 'Sign Out',
+                  cancelText: 'Stay Logged In',
+                  isDestructive: true,
+                  onConfirm: () => {
+                    signOut();
+                    showModal({
+                      type: 'info',
+                      title: 'Signed Out',
+                      message: 'You have been safely signed out. You are now in Guest Mode.',
+                      confirmText: 'OK',
+                    });
                   },
-                ]);
+                });
               }}
             >
               <LogOut size={16} color="#EF4444" />
@@ -478,8 +556,23 @@ export default function ProfileScreen() {
           <Pressable
             style={({ pressed }) => [styles.logoutBtn, pressed && styles.btnPressed]}
             onPress={() => {
-              signOut();
-              Alert.alert('Session Reset', 'Guest cache cleared.');
+              showModal({
+                type: 'confirm',
+                title: 'Reset Guest Session',
+                message: 'This will reset your local temporary guest session and clear cached preferences.',
+                confirmText: 'Reset Session',
+                cancelText: 'Cancel',
+                isDestructive: true,
+                onConfirm: () => {
+                  signOut();
+                  showModal({
+                    type: 'success',
+                    title: 'Session Reset',
+                    message: 'Guest cache cleared and new session started.',
+                    confirmText: 'OK',
+                  });
+                },
+              });
             }}
           >
             <LogOut size={16} color={colors.textMuted} />
@@ -560,6 +653,19 @@ export default function ProfileScreen() {
         onSelectAvatar={async (url) => {
           await updateProfile({ avatar_url: url });
         }}
+      />
+
+      {/* Cinematic Custom Alert & Confirmation Modal */}
+      <CinematicModal
+        visible={modalConfig.visible}
+        onClose={closeModal}
+        type={modalConfig.type}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        confirmText={modalConfig.confirmText}
+        cancelText={modalConfig.cancelText}
+        onConfirm={modalConfig.onConfirm}
+        isDestructive={modalConfig.isDestructive}
       />
     </View>
   );

@@ -7,12 +7,12 @@ import {
   Pressable,
   ScrollView,
   TextInput,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { X, Image as ImageIcon, Check, Link2, Sparkles } from 'lucide-react-native';
+import CinematicModal from './CinematicModal';
 import { colors } from '../theme/colors';
 
 interface AvatarPickerModalProps {
@@ -74,16 +74,26 @@ export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
 }) => {
   const [customUrl, setCustomUrl] = useState('');
   const [loading, setLoading] = useState(false);
+  const [errorModal, setErrorModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+  });
 
   const handlePickFromGallery = async () => {
     try {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
       if (!permissionResult.granted) {
-        Alert.alert(
-          'Permission Required',
-          'Camera roll access is needed to pick a profile photo.'
-        );
+        setErrorModal({
+          visible: true,
+          title: 'Permission Required',
+          message: 'Camera roll access is needed to select a profile photo from your device.',
+        });
         return;
       }
 
@@ -107,7 +117,11 @@ export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
       }
     } catch (err: any) {
       setLoading(false);
-      Alert.alert('Notice', 'Could not open photo gallery: ' + (err.message || ''));
+      setErrorModal({
+        visible: true,
+        title: 'Gallery Notice',
+        message: 'Could not open photo gallery: ' + (err.message || 'Unknown error'),
+      });
     }
   };
 
@@ -245,6 +259,15 @@ export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
           </ScrollView>
         </View>
       </View>
+
+      <CinematicModal
+        visible={errorModal.visible}
+        onClose={() => setErrorModal((prev) => ({ ...prev, visible: false }))}
+        type="error"
+        title={errorModal.title}
+        message={errorModal.message}
+        confirmText="Understood"
+      />
     </Modal>
   );
 };
