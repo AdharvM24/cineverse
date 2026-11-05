@@ -5,6 +5,7 @@ import {
   StyleSheet,
   FlatList,
   Pressable,
+  Platform,
 } from 'react-native';
 import { ChevronRight } from 'lucide-react-native';
 import { router } from 'expo-router';
@@ -50,6 +51,8 @@ export const MovieSection: React.FC<MovieSectionProps> = ({
     }
   };
 
+  const itemInterval = cardWidth + 12;
+
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
@@ -80,9 +83,14 @@ export const MovieSection: React.FC<MovieSectionProps> = ({
         data={items}
         keyExtractor={(item) => `${item.id}-${item.vote_average}`}
         contentContainerStyle={styles.listContent}
+        decelerationRate="fast"
+        snapToInterval={itemInterval}
+        snapToAlignment="start"
+        disableIntervalMomentum={false}
         initialNumToRender={5}
-        maxToRenderPerBatch={8}
-        windowSize={5}
+        maxToRenderPerBatch={6}
+        windowSize={4}
+        removeClippedSubviews={Platform.OS === 'android'}
         renderItem={({ item, index }) => (
           <MovieCard
             item={item}
@@ -150,4 +158,3 @@ const styles = StyleSheet.create({
 });
 
 export default MovieSection;
-

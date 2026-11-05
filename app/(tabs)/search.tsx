@@ -323,6 +323,10 @@ export default function SearchScreen() {
           numColumns={3}
           contentContainerStyle={styles.gridContent}
           showsVerticalScrollIndicator={false}
+          initialNumToRender={12}
+          maxToRenderPerBatch={12}
+          windowSize={5}
+          decelerationRate="normal"
           renderItem={({ item }) => (
             <View style={styles.gridItem}>
               <MovieCard

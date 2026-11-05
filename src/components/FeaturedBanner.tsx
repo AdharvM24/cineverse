@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Pressable,
   Dimensions,
+  FlatList,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -20,161 +23,238 @@ import { Movie } from '../types/movie';
 import { useWatchlistStore } from '../store/watchlistStore';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const BANNER_HEIGHT = 480;
+const BANNER_HEIGHT = 490;
 
 interface FeaturedBannerProps {
-  movie: Movie;
+  movies?: Movie[];
+  movie?: Movie;
   onPlayTrailer?: (movie: Movie) => void;
 }
 
 export const FeaturedBanner: React.FC<FeaturedBannerProps> = ({
+  movies = [],
   movie,
   onPlayTrailer,
 }) => {
   const { isInWatchlist, toggleWatchlist } = useWatchlistStore();
-  const inWatchlist = isInWatchlist(movie.id, 'movie');
+  const [activeIndex, setActiveIndex] = useState(0);
+  const flatListRef = useRef<FlatList>(null);
 
-  const genres = (movie.genre_ids || [])
-    .slice(0, 3)
-    .map((id) => GENRE_MAP[id])
-    .filter(Boolean);
+  // Fallback to single movie if array is empty
+  const bannerMovies = movies.length > 0 ? movies.slice(0, 5) : movie ? [movie] : [];
 
-  const handleToggleWatchlist = () => {
-    toggleWatchlist({
-      tmdb_id: movie.id,
-      media_type: 'movie',
-      title: movie.title,
-      poster_path: movie.poster_path,
-      backdrop_path: movie.backdrop_path,
-      vote_average: movie.vote_average,
-      release_date: movie.release_date,
-    });
+  // Auto advance banner every 6 seconds
+  useEffect(() => {
+    if (bannerMovies.length <= 1) return;
+    const interval = setInterval(() => {
+      setActiveIndex((prev) => {
+        const next = (prev + 1) % bannerMovies.length;
+        flatListRef.current?.scrollToOffset({
+          offset: next * SCREEN_WIDTH,
+          animated: true,
+        });
+        return next;
+      });
+    }, 6000);
+
+    return () => clearInterval(interval);
+  }, [bannerMovies.length]);
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const offsetX = event.nativeEvent.contentOffset.x;
+    const index = Math.round(offsetX / SCREEN_WIDTH);
+    if (index !== activeIndex && index >= 0 && index < bannerMovies.length) {
+      setActiveIndex(index);
+    }
   };
 
-  const handleViewDetails = () => {
-    router.push(`/movie/${movie.id}` as any);
-  };
-
-  const backdropUri = getBackdropUrl(movie.backdrop_path || movie.poster_path, 'w1280');
+  if (bannerMovies.length === 0) return null;
 
   return (
     <View style={styles.container}>
-      {/* Cinematic Backdrop Image */}
-      <Image
-        source={{ uri: backdropUri }}
-        style={styles.backdrop}
-        contentFit="cover"
-        transition={300}
-        cachePolicy="memory-disk"
+      <FlatList
+        ref={flatListRef}
+        data={bannerMovies}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        decelerationRate="fast"
+        onMomentumScrollEnd={handleScroll}
+        keyExtractor={(item) => String(item.id)}
+        renderItem={({ item }) => {
+          const inWatchlist = isInWatchlist(item.id, 'movie');
+          const genres = (item.genre_ids || [])
+            .slice(0, 3)
+            .map((id: number) => GENRE_MAP[id])
+            .filter(Boolean);
+
+          const backdropUri = getBackdropUrl(item.backdrop_path || item.poster_path, 'w1280');
+
+          return (
+            <View style={styles.slide}>
+              {/* Cinematic Backdrop Image */}
+              <Image
+                source={{ uri: backdropUri }}
+                style={styles.backdrop}
+                contentFit="cover"
+                transition={300}
+                cachePolicy="memory-disk"
+              />
+
+              {/* Top Vignette Gradient */}
+              <LinearGradient
+                colors={['rgba(9, 9, 11, 0.85)', 'rgba(9, 9, 11, 0.25)', 'transparent']}
+                style={styles.topVignette}
+              />
+
+              {/* Bottom Deep Gradient Fade */}
+              <LinearGradient
+                colors={[
+                  'transparent',
+                  'rgba(9, 9, 11, 0.4)',
+                  'rgba(9, 9, 11, 0.88)',
+                  colors.background,
+                ]}
+                style={styles.bottomGradient}
+              />
+
+              {/* Content Overlay */}
+              <View style={styles.content}>
+                {/* Badges Row */}
+                <View style={styles.badgeRow}>
+                  <View style={styles.featuredBadge}>
+                    <Text style={styles.featuredBadgeText}>TOP SPOTLIGHT</Text>
+                  </View>
+                  <RatingBadge rating={item.vote_average} size="md" />
+                  <Text style={styles.yearText}>{formatYear(item.release_date)}</Text>
+                  {item.original_language && (
+                    <View style={styles.langBadge}>
+                      <Text style={styles.langBadgeText}>
+                        {item.original_language.toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Movie Title */}
+                <Text style={[styles.title, typography.heroTitle]} numberOfLines={2}>
+                  {item.title}
+                </Text>
+
+                {/* Genres */}
+                {genres.length > 0 && (
+                  <View style={styles.genresRow}>
+                    {genres.map((genre: string, idx: number) => (
+                      <React.Fragment key={genre}>
+                        <Text style={styles.genreText}>{genre}</Text>
+                        {idx < genres.length - 1 && <Text style={styles.bullet}>•</Text>}
+                      </React.Fragment>
+                    ))}
+                  </View>
+                )}
+
+                {/* Overview */}
+                <Text style={[styles.overview, typography.body]} numberOfLines={2}>
+                  {item.overview}
+                </Text>
+
+                {/* Action Buttons Row */}
+                <View style={styles.actionRow}>
+                  {/* Play Trailer Button */}
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.primaryBtn,
+                      pressed && styles.btnPressed,
+                    ]}
+                    onPress={() => {
+                      if (onPlayTrailer) {
+                        onPlayTrailer(item);
+                      } else {
+                        router.push(`/movie/${item.id}` as any);
+                      }
+                    }}
+                  >
+                    <Play size={18} color="#000" fill="#000" />
+                    <Text style={styles.primaryBtnText}>Trailer</Text>
+                  </Pressable>
+
+                  {/* Watchlist Toggle */}
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.secondaryBtn,
+                      inWatchlist && styles.secondaryBtnActive,
+                      pressed && styles.btnPressed,
+                    ]}
+                    onPress={() => {
+                      toggleWatchlist({
+                        tmdb_id: item.id,
+                        media_type: 'movie',
+                        title: item.title,
+                        poster_path: item.poster_path,
+                        backdrop_path: item.backdrop_path,
+                        vote_average: item.vote_average,
+                        release_date: item.release_date,
+                      });
+                    }}
+                  >
+                    {inWatchlist ? (
+                      <Check size={18} color={colors.primary} />
+                    ) : (
+                      <Plus size={18} color="#FFF" />
+                    )}
+                    <Text
+                      style={[
+                        styles.secondaryBtnText,
+                        inWatchlist && styles.secondaryBtnTextActive,
+                      ]}
+                    >
+                      {inWatchlist ? 'In List' : 'Watchlist'}
+                    </Text>
+                  </Pressable>
+
+                  {/* Details Button */}
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.iconBtn,
+                      pressed && styles.btnPressed,
+                    ]}
+                    onPress={() => router.push(`/movie/${item.id}` as any)}
+                  >
+                    <Info size={18} color="#FFF" />
+                    <Text style={styles.iconBtnText}>Info</Text>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+          );
+        }}
       />
 
-      {/* Top subtle vignette */}
-      <LinearGradient
-        colors={['rgba(9, 9, 11, 0.8)', 'rgba(9, 9, 11, 0.2)', 'transparent']}
-        style={styles.topVignette}
-      />
-
-      {/* Bottom deep gradient fade to page background */}
-      <LinearGradient
-        colors={[
-          'transparent',
-          'rgba(9, 9, 11, 0.4)',
-          'rgba(9, 9, 11, 0.85)',
-          colors.background,
-        ]}
-        style={styles.bottomGradient}
-      />
-
-      {/* Content Overlay */}
-      <View style={styles.content}>
-        {/* Badges Row */}
-        <View style={styles.badgeRow}>
-          <View style={styles.featuredBadge}>
-            <Text style={styles.featuredBadgeText}>FEATURED TODAY</Text>
-          </View>
-          <RatingBadge rating={movie.vote_average} size="md" />
-          <Text style={styles.yearText}>{formatYear(movie.release_date)}</Text>
-        </View>
-
-        {/* Title */}
-        <Text style={[styles.title, typography.heroTitle]} numberOfLines={2}>
-          {movie.title}
-        </Text>
-
-        {/* Genres */}
-        {genres.length > 0 && (
-          <View style={styles.genresRow}>
-            {genres.map((genre, idx) => (
-              <React.Fragment key={genre}>
-                <Text style={styles.genreText}>{genre}</Text>
-                {idx < genres.length - 1 && <Text style={styles.bullet}>•</Text>}
-              </React.Fragment>
-            ))}
-          </View>
-        )}
-
-        {/* Short Description */}
-        <Text style={[styles.overview, typography.body]} numberOfLines={3}>
-          {movie.overview}
-        </Text>
-
-        {/* Action Buttons Row */}
-        <View style={styles.actionRow}>
-          {/* Play / Trailer Button */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.primaryBtn,
-              pressed && styles.btnPressed,
-            ]}
-            onPress={() => {
-              if (onPlayTrailer) {
-                onPlayTrailer(movie);
-              } else {
-                handleViewDetails();
-              }
-            }}
-          >
-            <Play size={18} color="#000" fill="#000" />
-            <Text style={styles.primaryBtnText}>Trailer</Text>
-          </Pressable>
-
-          {/* Watchlist Toggle */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.secondaryBtn,
-              inWatchlist && styles.secondaryBtnActive,
-              pressed && styles.btnPressed,
-            ]}
-            onPress={handleToggleWatchlist}
-          >
-            {inWatchlist ? (
-              <Check size={18} color={colors.primary} />
-            ) : (
-              <Plus size={18} color="#FFF" />
-            )}
-            <Text
-              style={[
-                styles.secondaryBtnText,
-                inWatchlist && styles.secondaryBtnTextActive,
-              ]}
+      {/* Hero Carousel Dots Indicator */}
+      {bannerMovies.length > 1 && (
+        <View style={styles.paginationRow}>
+          {bannerMovies.map((_, idx) => (
+            <Pressable
+              key={idx}
+              onPress={() => {
+                flatListRef.current?.scrollToOffset({
+                  offset: idx * SCREEN_WIDTH,
+                  animated: true,
+                });
+                setActiveIndex(idx);
+              }}
+              hitSlop={8}
             >
-              {inWatchlist ? 'In List' : 'Watchlist'}
-            </Text>
-          </Pressable>
-
-          {/* Details Button */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.iconBtn,
-              pressed && styles.btnPressed,
-            ]}
-            onPress={handleViewDetails}
-          >
-            <Info size={18} color="#FFF" />
-            <Text style={styles.iconBtnText}>Info</Text>
-          </Pressable>
+              <View
+                style={[
+                  styles.paginationDot,
+                  activeIndex === idx && styles.paginationDotActive,
+                ]}
+              />
+            </Pressable>
+          ))}
         </View>
-      </View>
+      )}
     </View>
   );
 };
@@ -186,6 +266,11 @@ const styles = StyleSheet.create({
     position: 'relative',
     backgroundColor: colors.background,
   },
+  slide: {
+    width: SCREEN_WIDTH,
+    height: BANNER_HEIGHT,
+    position: 'relative',
+  },
   backdrop: {
     width: '100%',
     height: '100%',
@@ -195,18 +280,18 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: 120,
+    height: 140,
   },
   bottomGradient: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    height: 280,
+    height: 290,
   },
   content: {
     position: 'absolute',
-    bottom: 12,
+    bottom: 22,
     left: 0,
     right: 0,
     paddingHorizontal: 16,
@@ -234,10 +319,21 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
+  langBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 3,
+  },
+  langBadgeText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: '700',
+  },
   title: {
     color: colors.text,
     marginBottom: 6,
-    textShadowColor: 'rgba(0,0,0,0.8)',
+    textShadowColor: 'rgba(0,0,0,0.85)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 6,
   },
@@ -245,7 +341,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   genreText: {
     color: colors.textSecondary,
@@ -258,10 +354,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   overview: {
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: 'rgba(255, 255, 255, 0.82)',
     fontSize: 13,
     lineHeight: 18,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   actionRow: {
     flexDirection: 'row',
@@ -275,12 +371,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
     paddingVertical: 10,
-    borderRadius: 6,
+    borderRadius: 8,
     gap: 6,
+    shadowColor: '#FFF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
   },
   primaryBtnText: {
     color: '#000000',
-    fontWeight: '700',
+    fontWeight: '800',
     fontSize: 14,
   },
   secondaryBtn: {
@@ -290,7 +390,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
     paddingVertical: 10,
-    borderRadius: 6,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.25)',
     gap: 6,
@@ -301,7 +401,7 @@ const styles = StyleSheet.create({
   },
   secondaryBtnText: {
     color: '#FFFFFF',
-    fontWeight: '600',
+    fontWeight: '700',
     fontSize: 14,
   },
   secondaryBtnTextActive: {
@@ -311,10 +411,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
     paddingVertical: 10,
     paddingHorizontal: 14,
-    borderRadius: 6,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.15)',
     gap: 5,
@@ -324,6 +424,28 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
+  paginationRow: {
+    position: 'absolute',
+    bottom: 6,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+  },
+  paginationDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  paginationDotActive: {
+    width: 18,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.primary,
+  },
   btnPressed: {
     opacity: 0.8,
     transform: [{ scale: 0.98 }],
@@ -331,4 +453,3 @@ const styles = StyleSheet.create({
 });
 
 export default FeaturedBanner;
-

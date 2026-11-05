@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   StyleSheet,
-  ScrollView,
   RefreshControl,
   Text,
   Pressable,
+  Animated,
 } from 'react-native';
 import { AlertCircle, RotateCcw } from 'lucide-react-native';
 import { colors } from '../../src/theme/colors';
@@ -40,6 +40,7 @@ export default function HomeScreen() {
   const [trailerModalVisible, setTrailerModalVisible] = useState(false);
   const [activeTrailerKey, setActiveTrailerKey] = useState<string | null>(null);
   const [activeTrailerTitle, setActiveTrailerTitle] = useState('');
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -101,8 +102,16 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView
+      {/* Sticky Dynamic Header */}
+      <AppHeader scrollY={scrollY} />
+
+      <Animated.ScrollView
         showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false }
+        )}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -112,16 +121,12 @@ export default function HomeScreen() {
           />
         }
       >
-        {/* Floating App Header */}
-        <AppHeader />
-
-        {/* Hero Featured Movie Banner */}
-        {featured && (
-          <FeaturedBanner
-            movie={featured}
-            onPlayTrailer={handlePlayTrailer}
-          />
-        )}
+        {/* Hero Featured Movies Carousel (Top 5 Spotlights) */}
+        <FeaturedBanner
+          movies={trendingToday.data?.results || []}
+          movie={featured}
+          onPlayTrailer={handlePlayTrailer}
+        />
 
         {/* 1. Trending Today (Top 10 Style with rank numbers) */}
         <MovieSection
@@ -220,7 +225,7 @@ export default function HomeScreen() {
 
         {/* Bottom spacing for tabs */}
         <View style={styles.bottomSpacer} />
-      </ScrollView>
+      </Animated.ScrollView>
 
       {/* Trailer Modal */}
       <TrailerModal

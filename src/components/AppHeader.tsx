@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   Pressable,
+  Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Search, Bell } from 'lucide-react-native';
@@ -14,9 +15,13 @@ import { useAuthStore } from '../store/authStore';
 
 interface AppHeaderProps {
   showGreeting?: boolean;
+  scrollY?: Animated.Value;
 }
 
-export const AppHeader: React.FC<AppHeaderProps> = ({ showGreeting = true }) => {
+export const AppHeader: React.FC<AppHeaderProps> = ({
+  showGreeting = true,
+  scrollY,
+}) => {
   const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
 
@@ -29,8 +34,34 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ showGreeting = true }) => 
 
   const displayName = user?.full_name ? user.full_name.split(' ')[0] : 'Cinephile';
 
+  const backgroundColor = scrollY
+    ? scrollY.interpolate({
+        inputRange: [0, 80],
+        outputRange: ['rgba(9, 9, 11, 0)', 'rgba(9, 9, 11, 0.95)'],
+        extrapolate: 'clamp',
+      })
+    : 'transparent';
+
+  const borderBottomColor = scrollY
+    ? scrollY.interpolate({
+        inputRange: [0, 80],
+        outputRange: ['transparent', colors.border],
+        extrapolate: 'clamp',
+      })
+    : 'transparent';
+
   return (
-    <View style={[styles.container, { paddingTop: Math.max(insets.top, 12) }]}>
+    <Animated.View
+      style={[
+        styles.container,
+        {
+          paddingTop: Math.max(insets.top, 12),
+          backgroundColor,
+          borderBottomColor,
+        },
+        Boolean(scrollY) && styles.fixedHeader,
+      ]}
+    >
       <View style={styles.topRow}>
         {/* Brand Logo */}
         <Pressable
@@ -89,7 +120,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ showGreeting = true }) => 
           </Text>
         </View>
       )}
-    </View>
+    </Animated.View>
   );
 };
 
@@ -98,7 +129,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 10,
     backgroundColor: 'transparent',
-    zIndex: 10,
+    borderBottomWidth: 1,
+    zIndex: 100,
+  },
+  fixedHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
   },
   topRow: {
     flexDirection: 'row',
@@ -151,11 +189,11 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   greetingRow: {
-    marginTop: 10,
+    marginTop: 8,
   },
   greetingText: {
     color: colors.textSecondary,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
   },
   greetingName: {
@@ -164,8 +202,8 @@ const styles = StyleSheet.create({
   },
   subGreeting: {
     color: colors.textMuted,
-    fontSize: 12,
-    marginTop: 2,
+    fontSize: 11,
+    marginTop: 1,
   },
   btnPressed: {
     opacity: 0.7,
@@ -173,4 +211,3 @@ const styles = StyleSheet.create({
 });
 
 export default AppHeader;
-

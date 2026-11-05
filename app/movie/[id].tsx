@@ -119,7 +119,11 @@ export default function MovieDetailsScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        decelerationRate="normal"
+        scrollEventThrottle={16}
+      >
         {/* Cinematic Backdrop Header */}
         <View style={styles.backdropContainer}>
           <Image

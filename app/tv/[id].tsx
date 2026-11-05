@@ -126,7 +126,11 @@ export default function TVDetailsScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        decelerationRate="normal"
+        scrollEventThrottle={16}
+      >
         {/* Cinematic Backdrop */}
         <View style={styles.backdropContainer}>
           <Image
