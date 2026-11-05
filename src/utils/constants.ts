@@ -5,9 +5,16 @@ export const TMDB_API_KEY =
   process.env.EXPO_PUBLIC_TMDB_API_KEY || '2dca580c2a14b55200e784d157207b4d';
 
 export const SUPABASE_URL =
-  process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://placeholder-tmdb-project.supabase.co';
+  process.env.EXPO_PUBLIC_SUPABASE_URL ||
+  process.env.SUPABASE_URL ||
+  'https://placeholder-tmdb-project.supabase.co';
+
 export const SUPABASE_ANON_KEY =
-  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key-tmdb-discovery';
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
+  process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+  process.env.SUPABASE_ANON_KEY ||
+  process.env.SUPABASE_PUBLISHABLE_KEY ||
+  'placeholder-anon-key-tmdb-discovery';
 
 export const GENRE_MAP: Record<number, string> = {
   28: 'Action',
