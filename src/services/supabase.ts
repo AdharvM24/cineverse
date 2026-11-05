@@ -12,6 +12,11 @@ export const isSupabaseConfigured = (): boolean => {
   );
 };
 
+export const isValidUUID = (id?: string | null): boolean => {
+  if (!id) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+};
+
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     storage: AsyncStorage,
@@ -27,7 +32,7 @@ export const supabaseService = {
     const stored = await AsyncStorage.getItem(`@profile_${userId}`);
     const localProfile = stored ? JSON.parse(stored) : null;
 
-    if (!isSupabaseConfigured()) {
+    if (!isSupabaseConfigured() || !isValidUUID(userId)) {
       return localProfile;
     }
 
@@ -39,7 +44,6 @@ export const supabaseService = {
         .single();
 
       if (error) {
-        // Table missing or schema cache not loaded
         return localProfile;
       }
       return data || localProfile;
@@ -49,23 +53,41 @@ export const supabaseService = {
   },
 
   async updateProfile(userId: string, updates: Partial<UserProfile>): Promise<void> {
-    // Always update local storage first so UI updates immediately
+    // 1. Always update local storage first so UI and avatar update immediately
     const existing = await this.getProfile(userId);
     const updated = { ...(existing || {}), ...updates, updated_at: new Date().toISOString() };
     await AsyncStorage.setItem(`@profile_${userId}`, JSON.stringify(updated));
 
-    if (!isSupabaseConfigured()) return;
+    // 2. Only push to Supabase if configured AND userId is a valid Supabase Auth UUID
+    if (!isSupabaseConfigured() || !isValidUUID(userId)) return;
 
     try {
+      let email = updates.email || existing?.email;
+      if (!email) {
+        const { data: authData } = await supabase.auth.getUser();
+        email = authData.user?.email || '';
+      }
+
+      const payload = {
+        id: userId,
+        email: email || '',
+        full_name: updates.full_name || existing?.full_name || '',
+        avatar_url: updates.avatar_url || existing?.avatar_url || '',
+        favorite_genre: updates.favorite_genre || existing?.favorite_genre || 'Action',
+        preferred_language: updates.preferred_language || existing?.preferred_language || 'ml',
+        ...updates,
+        updated_at: new Date().toISOString(),
+      };
+
       const { error } = await supabase
         .from('profiles')
-        .upsert({ id: userId, ...updates, updated_at: new Date().toISOString() });
+        .upsert(payload);
 
       if (error) {
         console.warn('Supabase profiles update notice:', error.message);
       }
     } catch (err: any) {
-      console.warn('Supabase profiles table not found in schema cache:', err.message);
+      console.warn('Supabase profiles error handled safely:', err.message);
     }
   },
 
@@ -74,7 +96,7 @@ export const supabaseService = {
     const stored = await AsyncStorage.getItem(`@watchlist_${userId}`);
     const localList = stored ? JSON.parse(stored) : [];
 
-    if (!isSupabaseConfigured()) {
+    if (!isSupabaseConfigured() || !isValidUUID(userId)) {
       return localList;
     }
 
@@ -109,7 +131,7 @@ export const supabaseService = {
     const updated = [newItem, ...filtered];
     await AsyncStorage.setItem(`@watchlist_${item.user_id}`, JSON.stringify(updated));
 
-    if (!isSupabaseConfigured()) {
+    if (!isSupabaseConfigured() || !isValidUUID(item.user_id)) {
       return newItem;
     }
 
@@ -131,14 +153,13 @@ export const supabaseService = {
   },
 
   async removeFromWatchlist(userId: string, tmdbId: number, mediaType: 'movie' | 'tv'): Promise<void> {
-    // Local removal
     const current = await this.getWatchlist(userId);
     const updated = current.filter(
       (i) => !(i.tmdb_id === tmdbId && i.media_type === mediaType)
     );
     await AsyncStorage.setItem(`@watchlist_${userId}`, JSON.stringify(updated));
 
-    if (!isSupabaseConfigured()) return;
+    if (!isSupabaseConfigured() || !isValidUUID(userId)) return;
 
     try {
       await supabase
@@ -155,7 +176,7 @@ export const supabaseService = {
     const stored = await AsyncStorage.getItem(`@favorites_${userId}`);
     const localList = stored ? JSON.parse(stored) : [];
 
-    if (!isSupabaseConfigured()) {
+    if (!isSupabaseConfigured() || !isValidUUID(userId)) {
       return localList;
     }
 
@@ -182,7 +203,6 @@ export const supabaseService = {
       added_at: new Date().toISOString(),
     };
 
-    // Local persistence
     const current = await this.getFavorites(item.user_id);
     const filtered = current.filter(
       (i) => !(i.tmdb_id === item.tmdb_id && i.media_type === item.media_type)
@@ -190,7 +210,7 @@ export const supabaseService = {
     const updated = [newItem, ...filtered];
     await AsyncStorage.setItem(`@favorites_${item.user_id}`, JSON.stringify(updated));
 
-    if (!isSupabaseConfigured()) {
+    if (!isSupabaseConfigured() || !isValidUUID(item.user_id)) {
       return newItem;
     }
 
@@ -218,7 +238,7 @@ export const supabaseService = {
     );
     await AsyncStorage.setItem(`@favorites_${userId}`, JSON.stringify(updated));
 
-    if (!isSupabaseConfigured()) return;
+    if (!isSupabaseConfigured() || !isValidUUID(userId)) return;
 
     try {
       await supabase
@@ -235,7 +255,7 @@ export const supabaseService = {
     const stored = await AsyncStorage.getItem(`@history_${userId}`);
     const localList = stored ? JSON.parse(stored) : [];
 
-    if (!isSupabaseConfigured()) {
+    if (!isSupabaseConfigured() || !isValidUUID(userId)) {
       return localList;
     }
 
@@ -269,7 +289,7 @@ export const supabaseService = {
     );
     await AsyncStorage.setItem(`@history_${item.user_id}`, JSON.stringify([newItem, ...filtered].slice(0, 30)));
 
-    if (!isSupabaseConfigured()) return;
+    if (!isSupabaseConfigured() || !isValidUUID(item.user_id)) return;
 
     try {
       await supabase.from('watch_history').upsert(newItem);

@@ -6,7 +6,7 @@
 -- 1. Profiles Table
 CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
-  email TEXT NOT NULL,
+  email TEXT DEFAULT '',
   full_name TEXT,
   avatar_url TEXT,
   favorite_genre TEXT DEFAULT 'Action',
@@ -14,6 +14,10 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Ensure email column is not blocked by NOT NULL constraint on partial updates
+ALTER TABLE public.profiles ALTER COLUMN email DROP NOT NULL;
+ALTER TABLE public.profiles ALTER COLUMN email SET DEFAULT '';
 
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 

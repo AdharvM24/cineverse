@@ -97,19 +97,27 @@ export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const pickedUri = result.assets[0].uri;
         setLoading(true);
-        await onSelectAvatar(pickedUri);
+        try {
+          await onSelectAvatar(pickedUri);
+        } catch (innerErr) {
+          console.warn('Avatar select warning:', innerErr);
+        }
         setLoading(false);
         onClose();
       }
     } catch (err: any) {
       setLoading(false);
-      Alert.alert('Error picking image', err.message || 'Could not select photo');
+      Alert.alert('Notice', 'Could not open photo gallery: ' + (err.message || ''));
     }
   };
 
   const handleSelectPreset = async (url: string) => {
     setLoading(true);
-    await onSelectAvatar(url);
+    try {
+      await onSelectAvatar(url);
+    } catch (innerErr) {
+      console.warn('Preset avatar warning:', innerErr);
+    }
     setLoading(false);
     onClose();
   };
@@ -117,7 +125,11 @@ export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
   const handleSaveCustomUrl = async () => {
     if (!customUrl.trim()) return;
     setLoading(true);
-    await onSelectAvatar(customUrl.trim());
+    try {
+      await onSelectAvatar(customUrl.trim());
+    } catch (innerErr) {
+      console.warn('Custom avatar warning:', innerErr);
+    }
     setLoading(false);
     setCustomUrl('');
     onClose();
