@@ -22,7 +22,9 @@ import {
   Settings,
   Database,
   CheckCircle,
+  Sparkles,
 } from 'lucide-react-native';
+import { router } from 'expo-router';
 import { colors } from '../../src/theme/colors';
 import { typography } from '../../src/theme/typography';
 import { useAuthStore } from '../../src/store/authStore';
@@ -299,6 +301,19 @@ export default function ProfileScreen() {
               <Text style={styles.settingSubtitle}>The Movie Database (TMDB) API v3</Text>
             </View>
           </View>
+
+          <Pressable
+            style={({ pressed }) => [styles.settingItem, pressed && styles.btnPressed]}
+            onPress={() => router.push('/welcome' as any)}
+          >
+            <View style={styles.settingIconWrap}>
+              <Sparkles size={18} color={colors.primary} />
+            </View>
+            <View style={styles.settingContent}>
+              <Text style={styles.settingTitle}>Animated Opening Screen</Text>
+              <Text style={styles.settingSubtitle}>Replay the cinematic filmstrip welcome intro</Text>
+            </View>
+          </Pressable>
         </View>
 
         {/* Logout Button */}

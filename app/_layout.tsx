@@ -1,8 +1,9 @@
 import React, { useEffect } from 'react';
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors } from '../src/theme/colors';
 import { useAuthStore } from '../src/store/authStore';
 import { useWatchlistStore } from '../src/store/watchlistStore';
@@ -21,9 +22,19 @@ export default function RootLayout() {
   const loadWatchlist = useWatchlistStore((s) => s.loadItems);
 
   useEffect(() => {
-    initializeAuth().then(() => {
-      loadWatchlist();
-    });
+    async function initApp() {
+      await initializeAuth();
+      await loadWatchlist();
+
+      // Check if user has seen onboarding/welcome
+      try {
+        const hasSeen = await AsyncStorage.getItem('@has_seen_welcome');
+        if (!hasSeen) {
+          router.replace('/welcome' as any);
+        }
+      } catch {}
+    }
+    initApp();
   }, [initializeAuth, loadWatchlist]);
 
   return (
@@ -37,6 +48,7 @@ export default function RootLayout() {
             animation: 'slide_from_right',
           }}
         >
+          <Stack.Screen name="welcome" options={{ headerShown: false, animation: 'fade' }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen
             name="movie/[id]"
