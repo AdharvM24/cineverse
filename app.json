@@ -27,6 +27,16 @@
     "plugins": [
       "expo-router",
       "expo-image"
-    ]
+    ],
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "aa6de0e1-537d-488c-a0be-44d86ef855e3"
+      }
+    }
   }
 }
